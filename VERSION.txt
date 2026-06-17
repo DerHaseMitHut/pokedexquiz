@@ -1,1 +1,1 @@
-fixed29-supabase-local
+fixed30-netlify-build-fix
