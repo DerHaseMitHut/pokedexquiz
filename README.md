@@ -85,3 +85,14 @@ Publish directory:
 ## Fixed32 Timer-Melodie
 
 Timer-Audiodateien werden online nicht mehr als riesiger Text im Raum-State gespeichert, sondern in den Supabase-Storage-Bucket `quiz-assets` hochgeladen. Im Raum wird nur noch die öffentliche URL gespeichert.
+
+
+## Fixed33 Timer-Sound
+
+- Timer-Melodie-Test kann jetzt gestoppt werden.
+- Timer-Musik hat einen eigenen Lautstärkeregler getrennt von den Show-Sounds.
+
+
+## Fixed34 Timer-Musik
+
+Die Timer-Musik stoppt jetzt automatisch, sobald der Countdown 0:00 erreicht.

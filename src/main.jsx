@@ -9,6 +9,7 @@ const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 const DEFAULT_SOUND_SETTINGS = {
   sounds: true,
   volume: 0.55,
+  timerVolume: 0.35,
   events: {
     timerTick: true,
     answerShow: true,
@@ -606,10 +607,29 @@ function HostPage({ code }) {
 function SoundSettingsCard({ room, onChange, onTest, compact }) {
   const settings = soundSettings(room.settings);
   const setEvent = (key, value) => onChange({ events: { [key]: value } });
+  const [previewAudio, setPreviewAudio] = useState(null);
+  useEffect(() => () => { if (previewAudio) previewAudio.pause(); }, [previewAudio]);
+
+  function testTimerAudio() {
+    if (!settings.timerAudio) return;
+    if (previewAudio) {
+      previewAudio.pause();
+      previewAudio.currentTime = 0;
+      setPreviewAudio(null);
+      return;
+    }
+    const audio = playCustomAudio(settings.timerAudio, settings.timerVolume ?? 0.35, true);
+    if (audio) {
+      setPreviewAudio(audio);
+      audio.addEventListener('ended', () => setPreviewAudio(null), { once: true });
+    }
+  }
+
   return <details className={`sound-settings-card ${compact ? 'sidebar-sound' : 'control-card'}`} open={!compact}>
     <summary>Sound-Einstellungen</summary>
     <label className="toggle-row"><input type="checkbox" checked={settings.sounds !== false} onChange={e => onChange({ sounds: e.target.checked })} /> Sounds aktiv</label>
-    <label className="range-row"><span>Lautstärke</span><input type="range" min="0" max="1" step="0.05" value={settings.volume ?? 0.55} onChange={e => onChange({ volume: Number(e.target.value) })} /></label>
+    <label className="range-row"><span>Show-Sounds</span><input type="range" min="0" max="1" step="0.05" value={settings.volume ?? 0.55} onChange={e => onChange({ volume: Number(e.target.value) })} /></label>
+    <label className="range-row"><span>Timer-Musik</span><input type="range" min="0" max="1" step="0.05" value={settings.timerVolume ?? 0.35} onChange={e => onChange({ timerVolume: Number(e.target.value) })} /></label>
     <div className="sound-toggle-grid">
       <label><input type="checkbox" checked={settings.events.timerTick} onChange={e => setEvent('timerTick', e.target.checked)} /> Timer-Musik</label>
       <label><input type="checkbox" checked={settings.events.answerShow} onChange={e => setEvent('answerShow', e.target.checked)} /> Antworten einblenden</label>
@@ -617,8 +637,8 @@ function SoundSettingsCard({ room, onChange, onTest, compact }) {
       <label><input type="checkbox" checked={settings.events.voteCast} onChange={e => setEvent('voteCast', e.target.checked)} /> Kandidat wählt Antwort</label>
       <label><input type="checkbox" checked={settings.events.scoreAward} onChange={e => setEvent('scoreAward', e.target.checked)} /> Punktevergabe</label>
     </div>
-    <AudioInput value={settings.timerAudio} name={settings.timerAudioName} onChange={(timerAudio, timerAudioName) => onChange({ timerAudio, timerAudioName })} />
-    <div className="sound-buttons"><button onClick={onTest}>Sound testen</button>{settings.timerAudio && <button onClick={() => playCustomAudio(settings.timerAudio, settings.volume ?? 0.55, false)}>Timer-Melodie testen</button>}</div>
+    <AudioInput value={settings.timerAudio} name={settings.timerAudioName} onChange={(timerAudio, timerAudioName) => { if (previewAudio) { previewAudio.pause(); setPreviewAudio(null); } onChange({ timerAudio, timerAudioName }); }} />
+    <div className="sound-buttons"><button onClick={onTest}>Show-Sound testen</button>{settings.timerAudio && <button onClick={testTimerAudio}>{previewAudio ? 'Timer-Test stoppen' : 'Timer-Melodie testen'}</button>}</div>
   </details>;
 }
 
@@ -962,17 +982,29 @@ function SoundEngine({ room }) {
     if (settings.timerAudio) {
       const audio = new Audio(settings.timerAudio);
       audio.loop = true;
-      audio.volume = Math.max(0, Math.min(1, settings.volume ?? 0.55));
+      audio.volume = Math.max(0, Math.min(1, settings.timerVolume ?? 0.35));
       customTimerAudioRef.current = audio;
       audio.play().catch(() => {});
-      return () => { audio.pause(); customTimerAudioRef.current = null; };
+      const stopAtZero = window.setInterval(() => {
+        if (getTimerRemaining(room.current) <= 0) {
+          audio.pause();
+          audio.currentTime = 0;
+          customTimerAudioRef.current = null;
+          window.clearInterval(stopAtZero);
+        }
+      }, 250);
+      return () => {
+        window.clearInterval(stopAtZero);
+        audio.pause();
+        customTimerAudioRef.current = null;
+      };
     }
     const tick = () => {
       const remaining = getTimerRemaining(room.current);
       const second = Math.ceil(remaining);
       if (second > 0 && second !== lastTickSecond.current) {
         lastTickSecond.current = second;
-        playUiSound('timer-tick', Math.min(1, (settings.volume ?? 0.55) * (second <= 10 ? 1.0 : .45)));
+        playUiSound('timer-tick', Math.min(1, (settings.timerVolume ?? 0.35) * (second <= 10 ? .75 : .32)));
       }
     };
     tick();
