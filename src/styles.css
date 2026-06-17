@@ -1212,3 +1212,7 @@ button.icon { padding: 8px 12px; }
 /* Fixed32: timer audio upload feedback. */
 .audio-input button:disabled { opacity: .65; cursor: wait; }
 .audio-error { margin-top: 6px; color: #fecaca; font-size: 12px; font-weight: 850; line-height: 1.25; }
+
+/* Fixed35: usable logarithmic-ish volume controls. */
+.volume-row span { display: flex; justify-content: space-between; gap: 8px; }
+.volume-row span b { color: #facc15; font-weight: 950; }

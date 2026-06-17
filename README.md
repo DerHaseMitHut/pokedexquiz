@@ -96,3 +96,9 @@ Timer-Audiodateien werden online nicht mehr als riesiger Text im Raum-State gesp
 ## Fixed34 Timer-Musik
 
 Die Timer-Musik stoppt jetzt automatisch, sobald der Countdown 0:00 erreicht.
+
+
+## Fixed35 Lautstärke-Regler
+
+Die Lautstärkeregler gehen jetzt von 0–200% und werden intern mit einer feineren Kurve umgerechnet.
+Dadurch gibt es zwischen stumm und laut viel mehr brauchbare Zwischenstufen.

@@ -8,8 +8,8 @@ import './styles.css';
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 const DEFAULT_SOUND_SETTINGS = {
   sounds: true,
-  volume: 0.55,
-  timerVolume: 0.35,
+  volume: 55,
+  timerVolume: 35,
   events: {
     timerTick: true,
     answerShow: true,
@@ -25,6 +25,18 @@ function soundSettings(settings = {}) {
     ...settings,
     events: { ...DEFAULT_SOUND_SETTINGS.events, ...(settings.events || {}) }
   };
+}
+
+function volumePercent(value, fallback = 55) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
+  return value <= 1 ? Math.round(value * 100) : value;
+}
+
+function volumeToGain(value, fallback = 55) {
+  const percent = Math.max(0, Math.min(200, volumePercent(value, fallback)));
+  if (percent <= 0) return 0;
+  // Quadratic curve gives much finer control at low/medium volume than a linear slider.
+  return Math.min(1, Math.pow(percent / 200, 2));
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://xfsirzvqpypbxxymznct.supabase.co';
@@ -618,7 +630,7 @@ function SoundSettingsCard({ room, onChange, onTest, compact }) {
       setPreviewAudio(null);
       return;
     }
-    const audio = playCustomAudio(settings.timerAudio, settings.timerVolume ?? 0.35, true);
+    const audio = playCustomAudio(settings.timerAudio, settings.timerVolume ?? 35, true);
     if (audio) {
       setPreviewAudio(audio);
       audio.addEventListener('ended', () => setPreviewAudio(null), { once: true });
@@ -628,8 +640,8 @@ function SoundSettingsCard({ room, onChange, onTest, compact }) {
   return <details className={`sound-settings-card ${compact ? 'sidebar-sound' : 'control-card'}`} open={!compact}>
     <summary>Sound-Einstellungen</summary>
     <label className="toggle-row"><input type="checkbox" checked={settings.sounds !== false} onChange={e => onChange({ sounds: e.target.checked })} /> Sounds aktiv</label>
-    <label className="range-row"><span>Show-Sounds</span><input type="range" min="0" max="1" step="0.05" value={settings.volume ?? 0.55} onChange={e => onChange({ volume: Number(e.target.value) })} /></label>
-    <label className="range-row"><span>Timer-Musik</span><input type="range" min="0" max="1" step="0.05" value={settings.timerVolume ?? 0.35} onChange={e => onChange({ timerVolume: Number(e.target.value) })} /></label>
+    <label className="range-row volume-row"><span>Show-Sounds <b>{volumePercent(settings.volume, 55)}%</b></span><input type="range" min="0" max="200" step="2" value={volumePercent(settings.volume, 55)} onChange={e => onChange({ volume: Number(e.target.value) })} /></label>
+    <label className="range-row volume-row"><span>Timer-Musik <b>{volumePercent(settings.timerVolume, 35)}%</b></span><input type="range" min="0" max="200" step="2" value={volumePercent(settings.timerVolume, 35)} onChange={e => onChange({ timerVolume: Number(e.target.value) })} /></label>
     <div className="sound-toggle-grid">
       <label><input type="checkbox" checked={settings.events.timerTick} onChange={e => setEvent('timerTick', e.target.checked)} /> Timer-Musik</label>
       <label><input type="checkbox" checked={settings.events.answerShow} onChange={e => setEvent('answerShow', e.target.checked)} /> Antworten einblenden</label>
@@ -968,7 +980,7 @@ function SoundEngine({ room }) {
     lastEventId.current = latest.id;
     if (settings.sounds === false) return;
     if (shouldPlayEventSound(latest.type, settings)) {
-      playUiSound(latest.type, settings.volume ?? 0.55);
+      playUiSound(latest.type, settings.volume ?? 55);
     }
   }, [room.current.events, room.settings]);
 
@@ -982,7 +994,7 @@ function SoundEngine({ room }) {
     if (settings.timerAudio) {
       const audio = new Audio(settings.timerAudio);
       audio.loop = true;
-      audio.volume = Math.max(0, Math.min(1, settings.timerVolume ?? 0.35));
+      audio.volume = volumeToGain(settings.timerVolume, 35);
       customTimerAudioRef.current = audio;
       audio.play().catch(() => {});
       const stopAtZero = window.setInterval(() => {
@@ -1004,7 +1016,7 @@ function SoundEngine({ room }) {
       const second = Math.ceil(remaining);
       if (second > 0 && second !== lastTickSecond.current) {
         lastTickSecond.current = second;
-        playUiSound('timer-tick', Math.min(1, (settings.timerVolume ?? 0.35) * (second <= 10 ? .75 : .32)));
+        playUiSound('timer-tick', Math.min(200, volumePercent(settings.timerVolume, 35) * (second <= 10 ? .75 : .32)));
       }
     };
     tick();
@@ -1032,19 +1044,19 @@ function getAudioContext() {
   return audioContext;
 }
 
-function playCustomAudio(src, volume = 0.55, loop = false) {
+function playCustomAudio(src, volume = 55, loop = false) {
   if (!src) return;
   const audio = new Audio(src);
   audio.loop = loop;
-  audio.volume = Math.max(0, Math.min(1, volume));
+  audio.volume = volumeToGain(volume, 55);
   audio.play().catch(() => {});
   return audio;
 }
 
-function playUiSound(type, volume = 0.55) {
+function playUiSound(type, volume = 55) {
   const ctx = getAudioContext();
   if (!ctx) return;
-  const v = Math.max(0, Math.min(1, volume));
+  const v = volumeToGain(volume, 55);
   const presets = {
     'sound-test': [[520, 0, .09], [780, .09, .12]],
     'timer-tick': [[980, 0, .025]],
