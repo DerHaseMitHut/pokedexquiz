@@ -67,3 +67,16 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_SjLbqIxvkHwNKKWeCgZKYQ_yzhe-sAm
 ```
 
 Der lokale Sync-Server ist noch als Fallback enthalten, wird aber nicht genutzt, solange Supabase-Variablen gesetzt sind.
+
+
+## Netlify Build-Fix
+
+Diese Version pinnt Vite auf eine stabile 5.x-Version und enthält **keine package-lock.json**.
+Wenn du diese Version ins GitHub-Repo kopierst, bitte darauf achten, dass die alte `package-lock.json`
+im Repo gelöscht wird. Netlify installiert dann die Dependencies frisch aus `package.json`.
+
+Build command bleibt:
+`npm run build`
+
+Publish directory:
+`dist`

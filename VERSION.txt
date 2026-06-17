@@ -1,1 +1,1 @@
-fixed30-netlify-build-fix
+fixed31-netlify-vite-pin
