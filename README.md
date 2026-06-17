@@ -80,3 +80,8 @@ Build command bleibt:
 
 Publish directory:
 `dist`
+
+
+## Fixed32 Timer-Melodie
+
+Timer-Audiodateien werden online nicht mehr als riesiger Text im Raum-State gespeichert, sondern in den Supabase-Storage-Bucket `quiz-assets` hochgeladen. Im Raum wird nur noch die öffentliche URL gespeichert.
