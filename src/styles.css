@@ -1216,3 +1216,55 @@ button.icon { padding: 8px 12px; }
 /* Fixed35: usable logarithmic-ish volume controls. */
 .volume-row span { display: flex; justify-content: space-between; gap: 8px; }
 .volume-row span b { color: #facc15; font-weight: 950; }
+
+/* Fixed36: participant OBS link/settings and live draft preview. */
+.player-view-menu { position: relative; margin-left: auto; display: inline-flex; align-items: center; }
+.answers-title .player-view-menu { margin-left: auto; }
+.player-view-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  min-width: 230px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(7, 10, 22, .96);
+  border: 1px solid rgba(255,255,255,.16);
+  box-shadow: 0 18px 42px rgba(0,0,0,.42);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.player-view-popover button {
+  width: 100%;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 900;
+}
+.player-view-popover small {
+  color: rgba(255,255,255,.58);
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+.obs-readonly-note {
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: #bfdbfe;
+  font-size: 14px;
+  font-weight: 950;
+  text-align: center;
+}
+.player-obs-page .player-writing-panel textarea {
+  opacity: .95;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, .72);
+}

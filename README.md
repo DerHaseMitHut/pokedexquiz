@@ -102,3 +102,9 @@ Die Timer-Musik stoppt jetzt automatisch, sobald der Countdown 0:00 erreicht.
 
 Die Lautstärkeregler gehen jetzt von 0–200% und werden intern mit einer feineren Kurve umgerechnet.
 Dadurch gibt es zwischen stumm und laut viel mehr brauchbare Zwischenstufen.
+
+
+## Fixed36 Teilnehmer-OBS-Link
+
+Teilnehmer haben im Zahnrad neben „Antworten“ jetzt einen eigenen OBS-Link.
+Der Link öffnet `/player-obs/<raumcode>/<spieler-id>` und zeigt die Teilnehmeransicht inklusive Live-Texteingabe als OBS-Browserquelle.

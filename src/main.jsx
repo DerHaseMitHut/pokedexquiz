@@ -129,6 +129,7 @@ function createRoom(code = randomCode()) {
       title: '',
       hostText: '',
       submissions: {},
+      drafts: {},
       answers: [],
       votes: {},
       revealed: {},
@@ -303,6 +304,7 @@ function App() {
   const path = window.location.pathname.split('/').filter(Boolean);
   if (path[0] === 'host' && path[1]) return <HostPage code={path[1].toUpperCase()} />;
   if (path[0] === 'player' && path[1]) return <PlayerPage code={path[1].toUpperCase()} />;
+  if (path[0] === 'player-obs' && path[1] && path[2]) return <PlayerObsPage code={path[1].toUpperCase()} playerId={path[2]} />;
   if (path[0] === 'obs' && path[1]) return <ObsPage code={path[1].toUpperCase()} />;
   return <Home />;
 }
@@ -383,7 +385,7 @@ function HostPage({ code }) {
     patch(r => {
       r.phase = 'writing';
       r.activeRoundId = round.id;
-      r.current = { image: round.image, title: round.title, hostText: round.hostText, submissions: {}, answers: [], votes: {}, revealed: {}, voteOrder: [], activeVoterId: null, awarded: {}, visibleAnswerCount: 0, editing: {}, timerDuration: 90, timerStartedAt: Date.now(), timerRunning: true, timerRemaining: 90, events: pushEvent(r.current.events, 'round-start') };
+      r.current = { image: round.image, title: round.title, hostText: round.hostText, submissions: {}, drafts: {}, answers: [], votes: {}, revealed: {}, voteOrder: [], activeVoterId: null, awarded: {}, visibleAnswerCount: 0, editing: {}, timerDuration: 90, timerStartedAt: Date.now(), timerRunning: true, timerRemaining: 90, events: pushEvent(r.current.events, 'round-start') };
       return r;
     });
   }
@@ -457,6 +459,7 @@ function HostPage({ code }) {
         title: '',
         hostText: '',
         submissions: {},
+        drafts: {},
         answers: [],
         votes: {},
         revealed: {},
@@ -764,7 +767,7 @@ function PlayerPage({ code }) {
   const [pendingVoteId, setPendingVoteId] = useState(null);
   useEffect(() => {
     if (!room || !playerId) return;
-    const existing = room.current.submissions?.[playerId] || '';
+    const existing = room.current.submissions?.[playerId] || room.current.drafts?.[playerId] || '';
     setText(existing.slice(0, 200));
     setSubmitConfirmOpen(false);
     setPendingVoteId(null);
@@ -789,6 +792,8 @@ function PlayerPage({ code }) {
     if (!safeText || hasSubmitted) return;
     patch(r => {
       r.current.submissions[playerId] = safeText;
+      if (!r.current.drafts) r.current.drafts = {};
+      r.current.drafts[playerId] = safeText;
       if (r.current.editing) r.current.editing[playerId] = false;
       if (r.current.answers?.length) {
         r.current.answers = r.current.answers.map(a => a.authorId === playerId ? { ...a, text: safeText } : a);
@@ -802,6 +807,16 @@ function PlayerPage({ code }) {
     const safeText = (text || '').slice(0, 200).trim();
     if (!safeText || hasSubmitted) return;
     setSubmitConfirmOpen(true);
+  }
+  function updateTextLive(nextText) {
+    const limited = (nextText || '').slice(0, 200);
+    setText(limited);
+    if (!playerId || hasSubmitted) return;
+    patch(r => {
+      if (!r.current.drafts) r.current.drafts = {};
+      r.current.drafts[playerId] = limited;
+      return r;
+    });
   }
   function requestVote(answerId) {
     if (!active) return;
@@ -828,7 +843,7 @@ function PlayerPage({ code }) {
   const showTextInput = room.phase === 'writing' || isEditing;
   const playerControls = showTextInput ? {
     text,
-    setText,
+    setText: updateTextLive,
     submitText,
     requestSubmit,
     submitConfirmOpen,
@@ -838,9 +853,38 @@ function PlayerPage({ code }) {
     canSubmit: !hasSubmitted && !!text.trim(),
     charCount: text.length
   } : null;
+  const playerObsUrl = `${window.location.origin}/player-obs/${code}/${playerId}`;
   return <div className={`player-page player-res-${viewMode}`}>
-    <ShowLayout room={room} mode="player" onVote={requestVote} onConfirmVote={confirmVote} onCancelVote={() => setPendingVoteId(null)} pendingVoteId={pendingVoteId} activePlayerId={playerId} viewMode={viewMode} onToggleViewMode={toggleViewMode} playerControls={playerControls} />
+    <ShowLayout room={room} mode="player" onVote={requestVote} onConfirmVote={confirmVote} onCancelVote={() => setPendingVoteId(null)} pendingVoteId={pendingVoteId} activePlayerId={playerId} viewMode={viewMode} onToggleViewMode={toggleViewMode} playerControls={playerControls} playerObsUrl={playerObsUrl} />
   </div>
+}
+
+function PlayerObsPage({ code, playerId }) {
+  const [room] = useRoom(code);
+  const [viewMode, setViewMode] = useState(new URLSearchParams(window.location.search).get('view') || 'fullhd');
+  if (!room) return <Loading />;
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return <main className="shell"><div className="panel"><h1>Spieler nicht gefunden</h1><p>Der OBS-Link gehört zu keinem aktuellen Spieler-Slot.</p></div></main>;
+  const isEditing = !!room.current.editing?.[playerId];
+  const showTextInput = room.phase === 'writing' || isEditing;
+  const liveText = (room.current.submissions?.[playerId] || room.current.drafts?.[playerId] || '').slice(0, 200);
+  const hasSubmitted = !!room.current.submissions?.[playerId]?.trim() && !isEditing;
+  const playerControls = showTextInput ? {
+    text: liveText,
+    setText: () => {},
+    submitText: () => {},
+    requestSubmit: () => {},
+    submitConfirmOpen: false,
+    setSubmitConfirmOpen: () => {},
+    isEditing,
+    hasSubmitted,
+    canSubmit: false,
+    charCount: liveText.length,
+    readOnly: true
+  } : null;
+  return <div className={`player-page player-obs-page player-res-${viewMode}`}>
+    <ShowLayout room={room} mode="player" participantObs activePlayerId={playerId} viewMode={viewMode} playerControls={playerControls} />
+  </div>;
 }
 
 function ObsPage({ code }) {
@@ -849,7 +893,7 @@ function ObsPage({ code }) {
   return <ShowLayout room={room} mode="obs" />;
 }
 
-function ShowLayout({ room, mode, onVote, onConfirmVote, onCancelVote, pendingVoteId, activePlayerId, viewMode, onToggleViewMode, playerControls }) {
+function ShowLayout({ room, mode, onVote, onConfirmVote, onCancelVote, pendingVoteId, activePlayerId, viewMode, onToggleViewMode, playerControls, playerObsUrl, participantObs }) {
   const players = room.players;
   const people = [players[0], players[1], { ...room.host, id: 'host', slot: 0, name: room.host.name || 'Host', points: null, isHost: true }, players[2], players[3]];
   const activeVoter = players.find(p => p.id === room.current.activeVoterId);
@@ -869,20 +913,42 @@ function ShowLayout({ room, mode, onVote, onConfirmVote, onCancelVote, pendingVo
       {room.current.image ? <img src={room.current.image} /> : <div className="empty-image"><span>Pokémon</span></div>}
     </section>
     <section className="answers-panel">
-      <div className="answers-title"><Eye /> Antworten {mode === 'player' && <button className="player-view-toggle" type="button" onClick={onToggleViewMode} title={`Ansicht: ${viewMode === 'fullhd' ? 'FullHD' : '4K'}`}><Settings size={20} /> <span>{viewMode === 'fullhd' ? 'FullHD' : '4K'}</span></button>}</div>
+      <div className="answers-title"><Eye /> Antworten {mode === 'player' && !participantObs && <PlayerViewMenu viewMode={viewMode} onToggleViewMode={onToggleViewMode} playerObsUrl={playerObsUrl} />}</div>
       {isPlayerWriting ? <><TimerDisplay room={room} /><PlayerWritingPanel controls={playerControls} /></> : room.current.answers.length ? room.current.answers.slice(0, room.current.visibleAnswerCount ?? room.current.answers.length).map(answer => <AnswerCard key={answer.id} answer={answer} room={room} onVote={onVote} onConfirmVote={onConfirmVote} onCancelVote={onCancelVote} pendingVote={pendingVoteId === answer.id} canVote={mode === 'player' && room.current.activeVoterId === activePlayerId} />) : <><div className="waiting-card">Warte auf Antworten…</div><TimerDisplay room={room} /></>}
     </section>
   </div>
 }
 
 
+function PlayerViewMenu({ viewMode, onToggleViewMode, playerObsUrl }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  async function copyObsLink() {
+    if (!playerObsUrl) return;
+    try {
+      await navigator.clipboard.writeText(playerObsUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {}
+  }
+  return <div className="player-view-menu">
+    <button className="player-view-toggle" type="button" onClick={() => setOpen(v => !v)} title="Teilnehmer-Einstellungen"><Settings size={20} /></button>
+    {open && <div className="player-view-popover">
+      <button type="button" onClick={onToggleViewMode}>Ansicht: {viewMode === 'fullhd' ? 'FullHD' : '4K'}</button>
+      <button type="button" disabled={!playerObsUrl} onClick={copyObsLink}>{copied ? 'OBS-Link kopiert!' : 'OBS-Link kopieren'}</button>
+      <small>Für deine eigene OBS-Aufnahme inkl. Texteingabe.</small>
+    </div>}
+  </div>;
+}
+
 function PlayerWritingPanel({ controls }) {
   const buttonLabel = controls.isEditing ? 'Korrektur erneut absenden' : controls.hasSubmitted ? 'Antwort abgegeben' : 'Text abgeben';
   return <div className="player-writing-panel">
     <div className="player-writing-title">{controls.isEditing ? 'Korrektur' : controls.hasSubmitted ? 'Antwort abgegeben' : 'Antwort schreiben'}</div>
-    <div className="answer-input-wrap"><textarea maxLength={200} placeholder="Dein Text zur Runde" value={controls.text} disabled={controls.hasSubmitted} onChange={e => controls.setText(e.target.value.slice(0, 200))} /><div className="char-counter">{controls.charCount} / 200 Zeichen</div></div>
-    <button className="primary" disabled={!controls.canSubmit} onClick={controls.requestSubmit}>{buttonLabel}</button>
-    {controls.submitConfirmOpen && <div className="inline-confirm submit-confirm"><span>Antwort so abschicken?</span><div className="inline-confirm-actions"><button type="button" className="confirm-yes" onClick={controls.submitText}>Ja</button><button type="button" className="confirm-no" onClick={() => controls.setSubmitConfirmOpen(false)}>Nein</button></div></div>}
+    <div className="answer-input-wrap"><textarea maxLength={200} placeholder="Dein Text zur Runde" value={controls.text} disabled={controls.hasSubmitted || controls.readOnly} readOnly={controls.readOnly} onChange={e => controls.setText(e.target.value.slice(0, 200))} /><div className="char-counter">{controls.charCount} / 200 Zeichen</div></div>
+    {!controls.readOnly && <button className="primary" disabled={!controls.canSubmit} onClick={controls.requestSubmit}>{buttonLabel}</button>}
+    {controls.readOnly && <div className="obs-readonly-note">{controls.hasSubmitted ? 'Antwort abgegeben' : 'Live-Vorschau deiner Eingabe'}</div>}
+    {controls.submitConfirmOpen && !controls.readOnly && <div className="inline-confirm submit-confirm"><span>Antwort so abschicken?</span><div className="inline-confirm-actions"><button type="button" className="confirm-yes" onClick={controls.submitText}>Ja</button><button type="button" className="confirm-no" onClick={() => controls.setSubmitConfirmOpen(false)}>Nein</button></div></div>}
     {controls.isEditing && <p className="edit-notice">Der Host hat deine Antwort zur Korrektur freigegeben. Dein bisheriger Text ist schon eingetragen.</p>}
   </div>;
 }
